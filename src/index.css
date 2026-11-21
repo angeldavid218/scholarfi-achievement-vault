@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@plugin "daisyui/index.js" {
+  themes: scholarfi-lite --default;
+}
+
+@plugin "daisyui/theme/index.js" {
+  name: "scholarfi-lite";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --color-base-100: #f6f7f7;
+  --color-base-200: #e9ebea;
+  --color-base-300: #d7d9d9;
+  --color-base-content: #1b1f1f;
+
+  --color-primary: #00595c;
+  --color-primary-content: #f4fafb;
+
+  --color-secondary: #5c5200;
+  --color-secondary-content: #fffdf2;
+
+  --color-accent: #2e3192;
+  --color-accent-content: #f4f5ff;
+
+  --color-neutral: #747877;
+  --color-neutral-content: #ffffff;
+
+  --radius-selector: 0.75rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+}
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Slightly greyer than cards (base-100) so fields are easy to spot */
+.input:not(.input-ghost),
+.select:not(.select-ghost),
+.textarea:not(.textarea-ghost) {
+  background-color: color-mix(
+    in srgb,
+    var(--color-base-200) 82%,
+    var(--color-base-300) 18%
+  );
+}
+
+.vault-shell {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(1200px 500px at 12% -10%, rgb(0 89 92 / 0.14), transparent 55%),
+    radial-gradient(900px 420px at 90% 0%, rgb(92 82 0 / 0.1), transparent 50%),
+    linear-gradient(180deg, #f3f6f5 0%, #e8ecea 48%, #f6f7f7 100%);
+}
+
+.vault-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(rgb(0 89 92 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(0 89 92 / 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: linear-gradient(180deg, black, transparent 85%);
+  pointer-events: none;
+}
+
+.vault-glow {
+  position: absolute;
+  inset: 0 auto auto 50%;
+  z-index: -1;
+  width: min(70vw, 720px);
+  height: 220px;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgb(0 89 92 / 0.16), transparent 70%);
+  filter: blur(12px);
+  pointer-events: none;
+  animation: vault-pulse 8s ease-in-out infinite;
+}
+
+.vault-hero {
+  animation: vault-rise 0.55s ease-out both;
+}
+
+.vault-panel {
+  animation: vault-rise 0.65s ease-out both;
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+
+.vault-panel:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-base-300));
+  box-shadow: 0 10px 28px rgb(27 31 31 / 0.06);
+}
+
+@keyframes vault-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vault-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vault-glow,
+  .vault-hero,
+  .vault-panel,
+  .vault-row {
+    animation: none !important;
+    transition: none !important;
+  }
+}

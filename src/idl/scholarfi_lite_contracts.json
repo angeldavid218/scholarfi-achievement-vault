@@ -1,0 +1,969 @@
+{
+  "address": "7JTpTv6ftwRJwyXasGjU7L1swFnrizKh7nEeHnSbVMbs",
+  "metadata": {
+    "name": "scholarfi_lite_contracts",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "ScholarFi Lite: course and achievement PDA CRUD on Solana"
+  },
+  "instructions": [
+    {
+      "name": "add_student",
+      "discriminator": [
+        31,
+        147,
+        62,
+        4,
+        151,
+        7,
+        185,
+        32
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "signer": true
+        },
+        {
+          "name": "student_list",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "student",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "close_course",
+      "discriminator": [
+        157,
+        252,
+        239,
+        166,
+        213,
+        174,
+        160,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "course",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  117,
+                  114,
+                  115,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "arg",
+                "path": "course_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "course_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "close_student_list",
+      "discriminator": [
+        78,
+        123,
+        124,
+        227,
+        71,
+        135,
+        92,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "student_list",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_course",
+      "discriminator": [
+        120,
+        121,
+        154,
+        164,
+        107,
+        180,
+        167,
+        241
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "course",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  117,
+                  114,
+                  115,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "arg",
+                "path": "course_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "course_id",
+          "type": "u64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "create_student_list",
+      "discriminator": [
+        243,
+        94,
+        102,
+        203,
+        13,
+        210,
+        123,
+        152
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "student_list",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "students",
+          "type": {
+            "vec": "pubkey"
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete_achievement",
+      "discriminator": [
+        55,
+        65,
+        242,
+        116,
+        241,
+        209,
+        204,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "student"
+        },
+        {
+          "name": "student_list",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "achievement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  104,
+                  105,
+                  101,
+                  118,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "account",
+                "path": "student"
+              },
+              {
+                "kind": "arg",
+                "path": "achievement_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "achievement_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize",
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [],
+      "args": []
+    },
+    {
+      "name": "register_achievement",
+      "discriminator": [
+        56,
+        222,
+        215,
+        5,
+        7,
+        193,
+        74,
+        80
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "student"
+        },
+        {
+          "name": "student_list",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "course",
+          "docs": [
+            "Optional Course PDA. Required when `course_id` is Some."
+          ],
+          "optional": true
+        },
+        {
+          "name": "achievement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  104,
+                  105,
+                  101,
+                  118,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "account",
+                "path": "student"
+              },
+              {
+                "kind": "arg",
+                "path": "achievement_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "achievement_id",
+          "type": "u64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "achievement_type",
+          "type": {
+            "defined": {
+              "name": "AchievementType"
+            }
+          }
+        },
+        {
+          "name": "course_id",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "remove_student",
+      "discriminator": [
+        211,
+        213,
+        6,
+        187,
+        74,
+        206,
+        19,
+        4
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "signer": true
+        },
+        {
+          "name": "student_list",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "student",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "update_achievement",
+      "discriminator": [
+        176,
+        229,
+        20,
+        216,
+        154,
+        107,
+        14,
+        190
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "student"
+        },
+        {
+          "name": "student_list",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "course",
+          "docs": [
+            "Optional Course PDA. Required when `course_id` is Some."
+          ],
+          "optional": true
+        },
+        {
+          "name": "achievement",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  104,
+                  105,
+                  101,
+                  118,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "account",
+                "path": "student"
+              },
+              {
+                "kind": "arg",
+                "path": "achievement_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "achievement_id",
+          "type": "u64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "achievement_type",
+          "type": {
+            "defined": {
+              "name": "AchievementType"
+            }
+          }
+        },
+        {
+          "name": "course_id",
+          "type": {
+            "option": "u64"
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_course",
+      "discriminator": [
+        81,
+        217,
+        18,
+        192,
+        129,
+        233,
+        129,
+        231
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "signer": true
+        },
+        {
+          "name": "course",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  117,
+                  114,
+                  115,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "arg",
+                "path": "course_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "course_id",
+          "type": "u64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "active",
+          "type": "bool"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Achievement",
+      "discriminator": [
+        30,
+        253,
+        162,
+        142,
+        30,
+        160,
+        66,
+        62
+      ]
+    },
+    {
+      "name": "Course",
+      "discriminator": [
+        206,
+        6,
+        78,
+        228,
+        163,
+        138,
+        241,
+        106
+      ]
+    },
+    {
+      "name": "StudentList",
+      "discriminator": [
+        150,
+        90,
+        197,
+        187,
+        136,
+        191,
+        217,
+        15
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidAchievementId",
+      "msg": "Invalid achievement id"
+    },
+    {
+      "code": 6001,
+      "name": "StudentNotOnList",
+      "msg": "Student is not on this teacher's student list"
+    },
+    {
+      "code": 6002,
+      "name": "TitleTooLong",
+      "msg": "Achievement title exceeds max length"
+    },
+    {
+      "code": 6003,
+      "name": "StudentListTooLarge",
+      "msg": "Student list exceeds max allowed students"
+    },
+    {
+      "code": 6004,
+      "name": "UnauthorizedTeacher",
+      "msg": "Student list account does not belong to this teacher"
+    },
+    {
+      "code": 6005,
+      "name": "StudentAlreadyOnList",
+      "msg": "Student is already on this teacher's student list"
+    },
+    {
+      "code": 6006,
+      "name": "StudentNotFound",
+      "msg": "Student was not found on this teacher's student list"
+    },
+    {
+      "code": 6007,
+      "name": "CourseTitleTooLong",
+      "msg": "Course title exceeds max length"
+    },
+    {
+      "code": 6008,
+      "name": "UnauthorizedCourseTeacher",
+      "msg": "Course account does not belong to this teacher"
+    },
+    {
+      "code": 6009,
+      "name": "CourseRequired",
+      "msg": "Course account must be provided when linking a course_id"
+    },
+    {
+      "code": 6010,
+      "name": "CourseIdMismatch",
+      "msg": "Provided course does not match the given course_id"
+    }
+  ],
+  "types": [
+    {
+      "name": "Achievement",
+      "docs": [
+        "One issued achievement for a student, signed by the teacher."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "student",
+            "type": "pubkey"
+          },
+          {
+            "name": "teacher",
+            "type": "pubkey"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "achievement_type",
+            "type": {
+              "defined": {
+                "name": "AchievementType"
+              }
+            }
+          },
+          {
+            "name": "course_id",
+            "docs": [
+              "Optional link to a teacher-owned Course PDA."
+            ],
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AchievementType",
+      "docs": [
+        "How the achievement is represented off-chain or in a follow-up mint flow."
+      ],
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Token"
+          },
+          {
+            "name": "Nft"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Course",
+      "docs": [
+        "Teacher-owned course that achievements can optionally reference."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "teacher",
+            "type": "pubkey"
+          },
+          {
+            "name": "course_id",
+            "type": "u64"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "active",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "StudentList",
+      "docs": [
+        "Teacher-scoped list of student wallets allowed to receive achievements."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "teacher",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "students",
+            "type": {
+              "vec": "pubkey"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
