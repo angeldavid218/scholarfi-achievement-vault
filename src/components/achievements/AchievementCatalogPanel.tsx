@@ -5,17 +5,23 @@ import { SearchInput } from "../ui/SearchInput";
 interface AchievementCatalogPanelProps {
   query: string;
   achievements: AchievementDefinition[];
+  rewardSymbol?: string | null;
   onQueryChange: (value: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  onSendTokens: (id: string, amount: string) => void;
+  sendingId?: string | null;
 }
 
 export const AchievementCatalogPanel = ({
   query,
   achievements,
+  rewardSymbol = null,
   onQueryChange,
   onEdit,
   onDelete,
+  onSendTokens,
+  sendingId = null,
 }: AchievementCatalogPanelProps) => (
   <section className="vault-panel card border border-base-300/80 bg-base-100/90 shadow-sm backdrop-blur-sm">
     <div className="card-body gap-4">
@@ -45,8 +51,11 @@ export const AchievementCatalogPanel = ({
             <AchievementListItem
               key={achievement.id}
               achievement={achievement}
+              rewardSymbol={rewardSymbol}
               onEdit={onEdit}
               onDelete={onDelete}
+              onSendTokens={onSendTokens}
+              isSendingTokens={sendingId === achievement.id}
             />
           ))
         )}

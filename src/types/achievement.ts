@@ -14,6 +14,22 @@ export interface AchievementDefinition {
   sampleAchievementPda?: string;
   deleteStudentPubkey?: string;
   deleteAchievementId?: string;
+  /** True when a token achievement already has a reward receipt. */
+  rewarded?: boolean;
+  /** Whole-token amount minted (UI units) for a rewarded token achievement. */
+  rewardAmount?: string | null;
+}
+
+export interface TeacherRewardMint {
+  name: string;
+  symbol: string;
+  decimals: number;
+  mint: string;
+  /** Null for pre-Token-2022 (legacy) classroom mints that must be replaced. */
+  mintId: bigint | null;
+  isToken2022: boolean;
+  configPda: string;
+  explorerAddressUrl: string;
 }
 
 export interface StudentSummary {

@@ -123,11 +123,16 @@
   }
 }
 
+.token-balance-panel {
+  animation: vault-rise 0.4s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .vault-glow,
   .vault-hero,
   .vault-panel,
-  .vault-row {
+  .vault-row,
+  .token-balance-panel {
     animation: none !important;
     transition: none !important;
   }

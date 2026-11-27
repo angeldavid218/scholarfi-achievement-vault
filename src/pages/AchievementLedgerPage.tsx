@@ -4,6 +4,7 @@ import { PublicKey } from "@solana/web3.js";
 import { AchievementCatalogPanel } from "../components/achievements/AchievementCatalogPanel";
 import { CreateAchievementCard } from "../components/achievements/CreateAchievementCard";
 import { CoursesPanel } from "../components/vault/CoursesPanel";
+import { RewardMintPanel } from "../components/vault/RewardMintPanel";
 import { RosterPanel } from "../components/vault/RosterPanel";
 import { StatHighlight } from "../components/ui/StatHighlight";
 import { SolanaWalletButton } from "../components/wallet/SolanaWalletButton";
@@ -14,15 +15,21 @@ import type {
   CourseSummary,
   RecentIssuance,
   StudentSummary,
+  TeacherRewardMint,
 } from "../types/achievement";
 import { addStudentOnChain } from "../solana/addStudentOnChain";
 import { createCourseOnChain } from "../solana/createCourseOnChain";
+import { closeRewardMintOnChain } from "../solana/closeRewardMintOnChain";
+import { createRewardMintOnChain } from "../solana/createRewardMintOnChain";
 import { createStudentListIfNeeded } from "../solana/createStudentListIfNeeded";
 import { deleteAchievementOnChain } from "../solana/deleteAchievementOnChain";
 import { fetchTeacherAchievements } from "../solana/fetchTeacherAchievements";
 import { fetchTeacherCourses } from "../solana/fetchTeacherCourses";
+import { fetchTeacherRewardMint } from "../solana/fetchTeacherRewardMint";
 import { fetchTeacherStudentList } from "../solana/fetchTeacherStudentList";
+import { parseRewardAmount } from "../solana/rewardToken";
 import { registerAchievementOnChain } from "../solana/registerAchievementOnChain";
+import { rewardAchievementOnChain } from "../solana/rewardAchievementOnChain";
 import { removeStudentOnChain } from "../solana/removeStudentOnChain";
 import { closeCourseOnChain, updateCourseOnChain } from "../solana/updateCourseOnChain";
 import { updateAchievementOnChain } from "../solana/updateAchievementOnChain";
@@ -113,6 +120,13 @@ export const AchievementLedgerPage = () => {
   );
   const [rosterMutating, setRosterMutating] = useState(false);
   const [courseMutating, setCourseMutating] = useState(false);
+  const [rewardMint, setRewardMint] = useState<TeacherRewardMint | null>(null);
+  const [rewardMintSync, setRewardMintSync] = useState<"idle" | "pending" | "ready" | "error">(
+    "idle",
+  );
+  const [rewardMintMutating, setRewardMintMutating] = useState(false);
+  const [tokenAmount, setTokenAmount] = useState("");
+  const [sendingRewardId, setSendingRewardId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [kind, setKind] = useState<AchievementKind>("nft");
@@ -176,6 +190,16 @@ export const AchievementLedgerPage = () => {
     return chainAchievements;
   };
 
+  const syncRewardMintFromChain = async (
+    wallet: NonNullable<typeof anchorWallet>,
+  ): Promise<TeacherRewardMint | null> => {
+    setRewardMintSync("pending");
+    const mint = await fetchTeacherRewardMint(wallet, connection);
+    setRewardMint(mint);
+    setRewardMintSync("ready");
+    return mint;
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -184,11 +208,13 @@ export const AchievementLedgerPage = () => {
         setAchievements([]);
         setCourses([]);
         setStudentList([]);
+        setRewardMint(null);
         setIssuedCount(0);
         setRecent([]);
         setAchievementsSync("idle");
         setCoursesSync("idle");
         setStudentListSync("idle");
+        setRewardMintSync("idle");
         return;
       }
 
@@ -198,6 +224,14 @@ export const AchievementLedgerPage = () => {
         const chainCourses = await syncCoursesFromChain(anchorWallet);
         if (cancelled) return;
         await syncAchievementsFromChain(anchorWallet, chainCourses);
+        if (cancelled) return;
+        try {
+          await syncRewardMintFromChain(anchorWallet);
+        } catch (error) {
+          if (cancelled) return;
+          console.error(`${LOG} AchievementLedgerPage: reward mint sync failed`, error);
+          setRewardMintSync("error");
+        }
         if (cancelled) return;
 
         try {
@@ -384,6 +418,130 @@ export const AchievementLedgerPage = () => {
     }
   };
 
+  const handleCreateRewardMint = async (name: string, symbol: string) => {
+    if (!anchorWallet?.publicKey) {
+      window.alert("Conecta una billetera antes de crear el token.");
+      return;
+    }
+    setRewardMintMutating(true);
+    try {
+      const result = await createRewardMintOnChain(anchorWallet, { name, symbol }, connection);
+      setLastChainProof({
+        label: "Token del aula",
+        pda: result.mint.toBase58(),
+        signature: result.signature,
+      });
+      await syncRewardMintFromChain(anchorWallet);
+    } catch (error) {
+      console.error(`${LOG} AchievementLedgerPage: create_reward_mint failed`, error);
+      window.alert("No se pudo crear el token del aula. Revisa la consola y tu saldo de SOL.");
+    } finally {
+      setRewardMintMutating(false);
+    }
+  };
+
+  const handleReplaceRewardMint = async (name: string, symbol: string) => {
+    if (!anchorWallet?.publicKey) {
+      window.alert("Conecta una billetera antes de reemplazar el token.");
+      return;
+    }
+    if (!rewardMint) {
+      window.alert("No hay token del aula para reemplazar.");
+      return;
+    }
+    setRewardMintMutating(true);
+    try {
+      const closed = await closeRewardMintOnChain(
+        anchorWallet,
+        {
+          mint: new PublicKey(rewardMint.mint),
+          mintId: rewardMint.mintId ?? 0n,
+        },
+        connection,
+      );
+      setLastChainProof({
+        label: "Token cerrado",
+        pda: closed.mint.toBase58(),
+        signature: closed.signature,
+      });
+      const created = await createRewardMintOnChain(anchorWallet, { name, symbol }, connection);
+      setLastChainProof({
+        label: "Token del aula (Token-2022)",
+        pda: created.mint.toBase58(),
+        signature: created.signature,
+      });
+      await syncRewardMintFromChain(anchorWallet);
+    } catch (error) {
+      console.error(`${LOG} AchievementLedgerPage: replace reward mint failed`, error);
+      window.alert(
+        "No se pudo reemplazar el token. Si el mint Token-2022 tiene supply > 0, no se puede cerrar.",
+      );
+      try {
+        await syncRewardMintFromChain(anchorWallet);
+      } catch {
+        // ignore refresh errors after failure
+      }
+    } finally {
+      setRewardMintMutating(false);
+    }
+  };
+
+  const handleSendTokens = async (id: string, amountRaw: string) => {
+    const target = achievements.find((item) => item.id === id);
+    if (!target) return;
+    if (!anchorWallet?.publicKey) {
+      window.alert("Conecta una billetera antes de enviar tokens.");
+      return;
+    }
+    if (!rewardMint) {
+      window.alert("Crea el token del aula antes de enviar tokens.");
+      return;
+    }
+    if (!rewardMint.isToken2022 || rewardMint.mintId === null) {
+      window.alert(
+        "Tu token del aula es legacy. Reemplázalo por Token-2022 antes de enviar tokens.",
+      );
+      return;
+    }
+    if (!target.deleteStudentPubkey || !target.deleteAchievementId || !target.sampleAchievementPda) {
+      window.alert("No se encontró metadata suficiente para enviar tokens. Recarga los logros.");
+      return;
+    }
+    const amount = parseRewardAmount(amountRaw);
+    if (amount === null) {
+      window.alert("Ingresa una cantidad entera entre 1 y 1000000000.");
+      return;
+    }
+
+    setSendingRewardId(id);
+    try {
+      const result = await rewardAchievementOnChain(
+        anchorWallet,
+        {
+          student: new PublicKey(target.deleteStudentPubkey),
+          achievementId: BigInt(target.deleteAchievementId),
+          amount,
+          mintId: rewardMint.mintId,
+          achievementPda: new PublicKey(target.sampleAchievementPda),
+        },
+        connection,
+      );
+      setLastChainProof({
+        label: "Tokens enviados",
+        pda: result.studentAta.toBase58(),
+        signature: result.signature,
+      });
+      await syncAchievementsFromChain(anchorWallet);
+    } catch (error) {
+      console.error(`${LOG} AchievementLedgerPage: reward_achievement failed`, error);
+      window.alert(
+        "No se pudieron enviar los tokens. El estudiante debe estar en la lista y el logro debe ser de tipo token.",
+      );
+    } finally {
+      setSendingRewardId(null);
+    }
+  };
+
   const filteredAchievements = useMemo(() => {
     const needle = catalogQuery.trim().toLowerCase();
     if (!needle) return achievements;
@@ -414,6 +572,22 @@ export const AchievementLedgerPage = () => {
       return;
     }
 
+    const rewardAmount = kind === "token" ? parseRewardAmount(tokenAmount) : null;
+    if (kind === "token" && !rewardMint) {
+      window.alert("Crea el token del aula antes de emitir un logro de tipo token.");
+      return;
+    }
+    if (kind === "token" && rewardMint && (!rewardMint.isToken2022 || rewardMint.mintId === null)) {
+      window.alert(
+        "Tu token del aula es legacy. Reemplázalo por Token-2022 antes de emitir logros token.",
+      );
+      return;
+    }
+    if (kind === "token" && rewardAmount === null) {
+      window.alert("Ingresa una cantidad entera entre 1 y 1000000000.");
+      return;
+    }
+
     const courseId = selectedCourseId ? BigInt(selectedCourseId) : null;
 
     setIsIssuingAchievement(true);
@@ -441,6 +615,47 @@ export const AchievementLedgerPage = () => {
         signature: chainResult.signature,
       });
 
+      if (kind === "token" && rewardAmount !== null && rewardMint?.mintId !== null && rewardMint) {
+        try {
+          const reward = await rewardAchievementOnChain(
+            anchorWallet,
+            {
+              student: selectedStudent.publicKey,
+              achievementId: BigInt(chainResult.achievementId.toString()),
+              amount: rewardAmount,
+              mintId: rewardMint.mintId,
+              achievementPda: chainResult.achievementPda,
+            },
+            connection,
+          );
+          setLastChainProof({
+            label: "Tokens enviados",
+            pda: reward.studentAta.toBase58(),
+            signature: reward.signature,
+          });
+        } catch (error) {
+          console.error(`${LOG} AchievementLedgerPage: reward_achievement failed`, error);
+          try {
+            await syncAchievementsFromChain(anchorWallet);
+          } catch (refreshError) {
+            console.error(
+              `${LOG} AchievementLedgerPage: refresh achievements after reward failure`,
+              refreshError,
+            );
+          }
+          window.alert(
+            "El logro quedó registrado en cadena, pero no se enviaron los tokens. Usa “Enviar tokens” en el catálogo.",
+          );
+          setName("");
+          setKind("nft");
+          setSelectedCourseId("");
+          setStudentDraft("");
+          setSelectedStudent(null);
+          setTokenAmount("");
+          return;
+        }
+      }
+
       try {
         await syncAchievementsFromChain(anchorWallet);
       } catch (error) {
@@ -463,6 +678,7 @@ export const AchievementLedgerPage = () => {
       setSelectedCourseId("");
       setStudentDraft("");
       setSelectedStudent(null);
+      setTokenAmount("");
     } catch (e) {
       console.error(`${LOG} AchievementLedgerPage: register_achievement failed`, e);
       window.alert(
@@ -588,6 +804,14 @@ export const AchievementLedgerPage = () => {
           />
         </div>
 
+        <RewardMintPanel
+          rewardMint={rewardMint}
+          syncStatus={rewardMintSync}
+          isMutating={rewardMintMutating}
+          onCreateMint={handleCreateRewardMint}
+          onReplaceMint={handleReplaceRewardMint}
+        />
+
         <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <CreateAchievementCard
             name={name}
@@ -611,12 +835,21 @@ export const AchievementLedgerPage = () => {
             }}
             onSubmit={handleSubmit}
             isIssuing={isIssuingAchievement}
+            tokenAmount={tokenAmount}
+            onTokenAmountChange={setTokenAmount}
+            hasRewardMint={rewardMint !== null}
+            rewardSymbol={rewardMint?.symbol ?? null}
           />
 
           <AchievementCatalogPanel
             query={catalogQuery}
             achievements={filteredAchievements}
+            rewardSymbol={rewardMint?.symbol ?? null}
             onQueryChange={setCatalogQuery}
+            onSendTokens={(id, amount) => {
+              void handleSendTokens(id, amount);
+            }}
+            sendingId={sendingRewardId}
             onEdit={(id) => {
               const target = achievements.find((item) => item.id === id);
               if (!target) return;

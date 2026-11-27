@@ -25,6 +25,10 @@ interface CreateAchievementCardProps {
   onSubmit: () => void | Promise<void>;
   /** True while the parent is sending `register_achievement` on-chain. */
   isIssuing?: boolean;
+  tokenAmount: string;
+  onTokenAmountChange: (value: string) => void;
+  hasRewardMint: boolean;
+  rewardSymbol?: string | null;
 }
 
 export const CreateAchievementCard = ({
@@ -43,8 +47,13 @@ export const CreateAchievementCard = ({
   onStudentSelect,
   onSubmit,
   isIssuing = false,
+  tokenAmount,
+  onTokenAmountChange,
+  hasRewardMint,
+  rewardSymbol = null,
 }: CreateAchievementCardProps) => {
   const activeCourses = courses.filter((course) => course.active);
+  const ticker = (rewardSymbol?.trim() || "tokens").toUpperCase();
 
   return (
     <section className="vault-panel card border border-base-300/80 bg-base-100/90 shadow-sm backdrop-blur-sm">
@@ -104,6 +113,29 @@ export const CreateAchievementCard = ({
               </select>
             </FormField>
           </div>
+
+          {kind === "token" ? (
+            <FormField id="achievement-token-amount" label="Cantidad a enviar">
+              <div className="join w-full border border-base-300 bg-base-200/70">
+                <input
+                  id="achievement-token-amount"
+                  className="input join-item w-full border-0 bg-transparent tabular-nums focus:outline-none"
+                  inputMode="numeric"
+                  placeholder="ej. 10"
+                  value={tokenAmount}
+                  onChange={(event) => onTokenAmountChange(event.target.value)}
+                />
+                <span className="join-item flex items-center px-3 text-sm font-semibold text-secondary">
+                  {ticker}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-neutral">
+                {hasRewardMint
+                  ? "Se acuñan en la ATA del estudiante al emitir el logro."
+                  : "Crea el token del aula antes de emitir un logro de tipo token."}
+              </p>
+            </FormField>
+          ) : null}
 
           <StudentAssignInput
             id="achievement-student"

@@ -115,6 +115,73 @@
       ]
     },
     {
+      "name": "close_reward_mint",
+      "discriminator": [
+        211,
+        93,
+        255,
+        247,
+        40,
+        122,
+        148,
+        136
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "reward_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_mint",
+          "docs": [
+            "Classic MERIT mint (old seeds) or Token-2022 mint (versioned seeds).",
+            "Ownership / supply checks and optional close happen in the handler."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "mint_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "close_student_list",
       "discriminator": [
         78,
@@ -222,6 +289,113 @@
         {
           "name": "title",
           "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "create_reward_mint",
+      "discriminator": [
+        149,
+        144,
+        95,
+        196,
+        171,
+        77,
+        31,
+        66
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "reward_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "arg",
+                "path": "mint_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program",
+          "docs": [
+            "Token-2022 only — required for MetadataPointer / TokenMetadata / MintCloseAuthority."
+          ],
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "symbol",
+          "type": "string"
+        },
+        {
+          "name": "mint_id",
+          "type": "u64"
         }
       ]
     },
@@ -571,6 +745,259 @@
       ]
     },
     {
+      "name": "reward_achievement",
+      "discriminator": [
+        51,
+        15,
+        207,
+        26,
+        86,
+        179,
+        249,
+        78
+      ],
+      "accounts": [
+        {
+          "name": "teacher",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "student"
+        },
+        {
+          "name": "student_list",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  116,
+                  117,
+                  100,
+                  101,
+                  110,
+                  116,
+                  95,
+                  108,
+                  105,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "achievement",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  97,
+                  99,
+                  104,
+                  105,
+                  101,
+                  118,
+                  101,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "account",
+                "path": "student"
+              },
+              {
+                "kind": "arg",
+                "path": "achievement_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_mint",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100,
+                  95,
+                  109,
+                  105,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "teacher"
+              },
+              {
+                "kind": "arg",
+                "path": "mint_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "reward_receipt",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  119,
+                  97,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "achievement"
+              }
+            ]
+          }
+        },
+        {
+          "name": "student_token_account",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "account",
+                "path": "student"
+              },
+              {
+                "kind": "account",
+                "path": "token_program"
+              },
+              {
+                "kind": "account",
+                "path": "reward_mint"
+              }
+            ],
+            "program": {
+              "kind": "const",
+              "value": [
+                140,
+                151,
+                37,
+                143,
+                78,
+                36,
+                137,
+                241,
+                187,
+                61,
+                16,
+                41,
+                20,
+                142,
+                13,
+                131,
+                11,
+                90,
+                19,
+                153,
+                218,
+                255,
+                16,
+                132,
+                4,
+                142,
+                123,
+                216,
+                219,
+                233,
+                248,
+                89
+              ]
+            }
+          }
+        },
+        {
+          "name": "token_program",
+          "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+        },
+        {
+          "name": "associated_token_program",
+          "address": "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "achievement_id",
+          "type": "u64"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "mint_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
       "name": "update_achievement",
       "discriminator": [
         176,
@@ -777,6 +1204,32 @@
       ]
     },
     {
+      "name": "RewardConfig",
+      "discriminator": [
+        163,
+        174,
+        98,
+        80,
+        230,
+        119,
+        69,
+        64
+      ]
+    },
+    {
+      "name": "RewardReceipt",
+      "discriminator": [
+        116,
+        154,
+        221,
+        22,
+        195,
+        73,
+        132,
+        89
+      ]
+    },
+    {
       "name": "StudentList",
       "discriminator": [
         150,
@@ -845,6 +1298,61 @@
       "code": 6010,
       "name": "CourseIdMismatch",
       "msg": "Provided course does not match the given course_id"
+    },
+    {
+      "code": 6011,
+      "name": "RewardNameEmpty",
+      "msg": "Reward token name is empty"
+    },
+    {
+      "code": 6012,
+      "name": "RewardNameTooLong",
+      "msg": "Reward token name exceeds max length"
+    },
+    {
+      "code": 6013,
+      "name": "RewardSymbolEmpty",
+      "msg": "Reward token symbol is empty"
+    },
+    {
+      "code": 6014,
+      "name": "RewardSymbolTooLong",
+      "msg": "Reward token symbol exceeds max length"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidRewardAmount",
+      "msg": "Reward amount must be between 1 and the maximum"
+    },
+    {
+      "code": 6016,
+      "name": "AchievementNotToken",
+      "msg": "Only token achievements can be rewarded"
+    },
+    {
+      "code": 6017,
+      "name": "AchievementStudentMismatch",
+      "msg": "Achievement does not belong to this student"
+    },
+    {
+      "code": 6018,
+      "name": "RewardMintMismatch",
+      "msg": "Reward mint does not match the teacher's reward config"
+    },
+    {
+      "code": 6019,
+      "name": "InvalidTokenProgram",
+      "msg": "Token program must be the Token-2022 program"
+    },
+    {
+      "code": 6020,
+      "name": "RewardMintSupplyNonZero",
+      "msg": "Reward mint cannot be closed while supply is non-zero"
+    },
+    {
+      "code": 6021,
+      "name": "RewardMintIdMismatch",
+      "msg": "Reward mint does not match the provided mint_id PDA"
     }
   ],
   "types": [
@@ -932,6 +1440,72 @@
           {
             "name": "active",
             "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RewardConfig",
+      "docs": [
+        "Teacher-scoped classroom reward token. One per teacher."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "teacher",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "symbol",
+            "type": "string"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RewardReceipt",
+      "docs": [
+        "Proves a token achievement was minted exactly once."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "achievement",
+            "type": "pubkey"
+          },
+          {
+            "name": "student",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
           },
           {
             "name": "bump",

@@ -7,7 +7,8 @@ import {
   scholarFiLiteIdl,
 } from "../connection";
 import type { AchievementDefinition, AchievementKind } from "../types/achievement";
-import { findAchievementPda } from "./pdas";
+import { findAchievementPda, findRewardReceiptPda } from "./pdas";
+import { formatRewardAmount } from "./rewardToken";
 
 type AchievementAccountDecoded = {
   teacher: PublicKey;
@@ -96,8 +97,12 @@ export async function fetchTeacherAchievements(
     { memcmp: { offset: teacherFilterOffset, bytes: wallet.publicKey.toBase58() } },
   ]);
 
+  const receiptPdas = rows.map((row) => findRewardReceiptPda(row.publicKey));
+  const receiptInfos =
+    receiptPdas.length > 0 ? await connection.getMultipleAccountsInfo(receiptPdas) : [];
+
   return rows
-    .map((row) => {
+    .map((row, index) => {
       const account = row.account as AchievementAccountDecoded;
       const title = account.title?.trim() || "Achievement";
       const kind = mapAchievementKind(account.achievementType);
@@ -109,6 +114,12 @@ export async function fetchTeacherAchievements(
         account.student,
         row.publicKey,
       );
+      const receipt = receiptInfos[index];
+      const rewarded = kind === "token" && receipt !== null;
+      const rewardAmount =
+        rewarded && receipt && receipt.data.length >= 112
+          ? formatRewardAmount(receipt.data.readBigUInt64LE(104))
+          : null;
 
       return {
         id: row.publicKey.toBase58(),
@@ -123,6 +134,8 @@ export async function fetchTeacherAchievements(
         explorerAddressUrl: explorerAddressUrl(row.publicKey.toBase58()),
         deleteStudentPubkey: studentKey,
         deleteAchievementId: achievementId,
+        rewarded,
+        rewardAmount,
       } satisfies AchievementDefinition;
     })
     .sort((a, b) => a.name.localeCompare(b.name, "es"));
