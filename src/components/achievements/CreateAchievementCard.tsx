@@ -29,6 +29,7 @@ interface CreateAchievementCardProps {
   onTokenAmountChange: (value: string) => void;
   hasRewardMint: boolean;
   rewardSymbol?: string | null;
+  hasNftCollection?: boolean;
 }
 
 export const CreateAchievementCard = ({
@@ -51,6 +52,7 @@ export const CreateAchievementCard = ({
   onTokenAmountChange,
   hasRewardMint,
   rewardSymbol = null,
+  hasNftCollection = false,
 }: CreateAchievementCardProps) => {
   const activeCourses = courses.filter((course) => course.active);
   const ticker = (rewardSymbol?.trim() || "tokens").toUpperCase();
@@ -135,7 +137,13 @@ export const CreateAchievementCard = ({
                   : "Crea el token del aula antes de emitir un logro de tipo token."}
               </p>
             </FormField>
-          ) : null}
+          ) : (
+            <p className="text-xs text-neutral">
+              {hasNftCollection
+                ? "Se acuñará un Asset de Metaplex Core al estudiante en la misma transacción."
+                : "Crea la colección NFT (Metaplex Core) antes de emitir un logro de tipo NFT."}
+            </p>
+          )}
 
           <StudentAssignInput
             id="achievement-student"

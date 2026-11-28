@@ -18,6 +18,9 @@ export interface AchievementDefinition {
   rewarded?: boolean;
   /** Whole-token amount minted (UI units) for a rewarded token achievement. */
   rewardAmount?: string | null;
+  /** Metaplex Core Asset address when this NFT achievement was minted from the app. */
+  nftAssetAddress?: string | null;
+  nftAssetExplorerUrl?: string | null;
 }
 
 export interface TeacherRewardMint {

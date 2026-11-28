@@ -1,11 +1,19 @@
 import { AnchorProvider, BN, Program, type Idl } from "@coral-xyz/anchor";
 import type { AnchorWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  type Connection,
+} from "@solana/web3.js";
 
 import {
   createScholarFiLiteConnection,
+  SCHOLARFI_LITE_CLUSTER_URL,
   scholarFiLiteIdl,
 } from "../connection";
+import { crearUmi, ixsCertificado } from "./metaplexCore";
+import { readNftCollectionConfig } from "./nftCollectionConfig";
 import { findAchievementPda, findCoursePda, findStudentListPda } from "./pdas";
 
 const LOG = "[ScholarFi Achievement Vault]";
@@ -18,6 +26,8 @@ export type RegisterAchievementOnChainResult = {
   studentListPda: PublicKey;
   coursePda?: PublicKey;
   signature?: string;
+  /** Metaplex Core Asset address when kind is nft. */
+  assetAddress?: string;
 };
 
 function nextAchievementIdStorageKey(teacher: PublicKey, student: PublicKey): string {
@@ -49,6 +59,7 @@ function mapAchievementType(kind: RegisterAchievementUiKind) {
 
 /**
  * Creates an `Achievement` PDA for `(teacher, student, achievement_id)` via `register_achievement`.
+ * When `kind === "nft"`, also mints a Metaplex Core Asset to the student in the same transaction.
  * `achievement_id` is chosen from localStorage per `(teacher, student)` and only advanced after success.
  * Pass `courseId` to link an optional Course PDA; omit / null for an unlinked achievement.
  */
@@ -97,6 +108,7 @@ export async function registerAchievementOnChain(
     studentListPda: studentListPda.toBase58(),
     courseId: courseId?.toString() ?? null,
     coursePda: coursePda?.toBase58() ?? null,
+    kind: params.kind,
   });
 
   const provider = new AnchorProvider(connection, wallet, {
@@ -105,7 +117,7 @@ export async function registerAchievementOnChain(
 
   const program = new Program(scholarFiLiteIdl as Idl, provider);
 
-  const signature = await program.methods
+  const registerBuilder = program.methods
     .registerAchievement(
       achievementIdBn,
       params.title.trim(),
@@ -120,9 +132,10 @@ export async function registerAchievementOnChain(
       course: coursePda,
       achievement: achievementPda,
       systemProgram: SystemProgram.programId,
-    } as never)
-    .rpc()
-    .catch(async (e: unknown) => {
+    } as never);
+
+  if (params.kind === "token") {
+    const signature = await registerBuilder.rpc().catch(async (e: unknown) => {
       const message = e instanceof Error ? e.message : String(e);
       const isAlreadyProcessed = message.includes("already been processed");
       if (isAlreadyProcessed) {
@@ -138,10 +151,64 @@ export async function registerAchievementOnChain(
       throw e;
     });
 
+    writeNextAchievementId(teacher, params.student, nextAchievementId + 1n);
+
+    console.info(`${LOG} registerAchievementOnChain: confirmed`, {
+      signature: signature || null,
+    });
+
+    return {
+      achievementId: achievementIdBn,
+      achievementPda,
+      studentListPda,
+      coursePda: coursePda ?? undefined,
+      signature: signature || undefined,
+    };
+  }
+
+  // NFT: register_achievement + Metaplex Core create in one transaction.
+  const config = readNftCollectionConfig(teacher.toBase58());
+  if (!config) {
+    throw new Error(
+      "Crea primero la colección NFT (Metaplex Core) antes de emitir un logro de tipo NFT.",
+    );
+  }
+
+  const registerIx = await registerBuilder.instruction();
+  const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+  const asset = ixsCertificado(
+    umi,
+    teacher,
+    config.collection,
+    params.student,
+    {
+      achievementId: achievementIdBn.toString(),
+      student: params.student.toBase58(),
+      teacher: teacher.toBase58(),
+      courseId: courseId?.toString() ?? null,
+      title: params.title.trim(),
+    },
+    config.uri,
+  );
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  const tx = new Transaction({
+    feePayer: teacher,
+    blockhash,
+    lastValidBlockHeight,
+  })
+    .add(registerIx)
+    .add(...asset.ixs);
+
+  const signature = await provider.sendAndConfirm(tx, [asset.firmante], {
+    commitment: "confirmed",
+  });
+
   writeNextAchievementId(teacher, params.student, nextAchievementId + 1n);
 
-  console.info(`${LOG} registerAchievementOnChain: confirmed`, {
-    signature: signature || null,
+  console.info(`${LOG} registerAchievementOnChain: confirmed (nft + core)`, {
+    signature,
+    assetAddress: asset.direccion,
   });
 
   return {
@@ -149,7 +216,8 @@ export async function registerAchievementOnChain(
     achievementPda,
     studentListPda,
     coursePda: coursePda ?? undefined,
-    signature: signature || undefined,
+    signature,
+    assetAddress: asset.direccion,
   };
 }
 

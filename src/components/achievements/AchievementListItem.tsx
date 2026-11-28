@@ -67,6 +67,16 @@ export const AchievementListItem = ({
               Ver en Explorer (PDA): {achievement.sampleAchievementPda}
             </a>
           ) : null}
+          {achievement.kind === "nft" && achievement.nftAssetExplorerUrl ? (
+            <a
+              className="link link-accent block break-all text-xs"
+              href={achievement.nftAssetExplorerUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Asset Core: {achievement.nftAssetAddress}
+            </a>
+          ) : null}
 
           {achievement.kind === "token" && achievement.rewarded ? (
             <TokenBalanceDisplay

@@ -4,6 +4,7 @@ import { PublicKey } from "@solana/web3.js";
 import { AchievementCatalogPanel } from "../components/achievements/AchievementCatalogPanel";
 import { CreateAchievementCard } from "../components/achievements/CreateAchievementCard";
 import { CoursesPanel } from "../components/vault/CoursesPanel";
+import { NftCollectionPanel } from "../components/vault/NftCollectionPanel";
 import { RewardMintPanel } from "../components/vault/RewardMintPanel";
 import { RosterPanel } from "../components/vault/RosterPanel";
 import { StatHighlight } from "../components/ui/StatHighlight";
@@ -20,6 +21,7 @@ import type {
 import { addStudentOnChain } from "../solana/addStudentOnChain";
 import { createCourseOnChain } from "../solana/createCourseOnChain";
 import { closeRewardMintOnChain } from "../solana/closeRewardMintOnChain";
+import { createNftCollectionOnChain } from "../solana/createNftCollectionOnChain";
 import { createRewardMintOnChain } from "../solana/createRewardMintOnChain";
 import { createStudentListIfNeeded } from "../solana/createStudentListIfNeeded";
 import { deleteAchievementOnChain } from "../solana/deleteAchievementOnChain";
@@ -27,6 +29,14 @@ import { fetchTeacherAchievements } from "../solana/fetchTeacherAchievements";
 import { fetchTeacherCourses } from "../solana/fetchTeacherCourses";
 import { fetchTeacherRewardMint } from "../solana/fetchTeacherRewardMint";
 import { fetchTeacherStudentList } from "../solana/fetchTeacherStudentList";
+import {
+  readNftAssetMap,
+  readNftCollectionConfig,
+  rememberNftAsset,
+  uriMetadata,
+  writeNftCollectionConfig,
+  type NftCollectionConfig,
+} from "../solana/nftCollectionConfig";
 import { parseRewardAmount } from "../solana/rewardToken";
 import { registerAchievementOnChain } from "../solana/registerAchievementOnChain";
 import { rewardAchievementOnChain } from "../solana/rewardAchievementOnChain";
@@ -125,6 +135,8 @@ export const AchievementLedgerPage = () => {
     "idle",
   );
   const [rewardMintMutating, setRewardMintMutating] = useState(false);
+  const [nftCollection, setNftCollection] = useState<NftCollectionConfig | null>(null);
+  const [nftCollectionMutating, setNftCollectionMutating] = useState(false);
   const [tokenAmount, setTokenAmount] = useState("");
   const [sendingRewardId, setSendingRewardId] = useState<string | null>(null);
 
@@ -175,11 +187,23 @@ export const AchievementLedgerPage = () => {
       (courseRows ?? courses).map((course) => [course.id, course.title] as const),
     );
     const chainAchievements = await fetchTeacherAchievements(wallet, connection, titleById);
-    setAchievements(chainAchievements);
-    setIssuedCount(chainAchievements.length);
+    const assetMap = readNftAssetMap(wallet.publicKey.toBase58());
+    const enriched = chainAchievements.map((item) => {
+      const asset = item.sampleAchievementPda
+        ? assetMap[item.sampleAchievementPda]
+        : undefined;
+      if (!asset) return item;
+      return {
+        ...item,
+        nftAssetAddress: asset,
+        nftAssetExplorerUrl: explorerAddressUrl(asset),
+      };
+    });
+    setAchievements(enriched);
+    setIssuedCount(enriched.length);
     setAchievementsSync("ready");
     setRecent(
-      chainAchievements.slice(0, 5).map((item) => ({
+      enriched.slice(0, 5).map((item) => ({
         id: item.id,
         title: item.courseTitle
           ? `${item.name} · ${item.courseTitle}`
@@ -187,7 +211,7 @@ export const AchievementLedgerPage = () => {
         relativeTime: "en cadena",
       })),
     );
-    return chainAchievements;
+    return enriched;
   };
 
   const syncRewardMintFromChain = async (
@@ -209,6 +233,7 @@ export const AchievementLedgerPage = () => {
         setCourses([]);
         setStudentList([]);
         setRewardMint(null);
+        setNftCollection(null);
         setIssuedCount(0);
         setRecent([]);
         setAchievementsSync("idle");
@@ -217,6 +242,8 @@ export const AchievementLedgerPage = () => {
         setRewardMintSync("idle");
         return;
       }
+
+      setNftCollection(readNftCollectionConfig(anchorWallet.publicKey.toBase58()));
 
       setAchievementsSync("pending");
       setCoursesSync("pending");
@@ -486,6 +513,51 @@ export const AchievementLedgerPage = () => {
     }
   };
 
+  const handleCreateNftCollection = async (name: string, uri: string) => {
+    if (!anchorWallet?.publicKey) {
+      window.alert("Conecta una billetera antes de crear la colección NFT.");
+      return;
+    }
+    setNftCollectionMutating(true);
+    try {
+      const result = await createNftCollectionOnChain(anchorWallet, { name, uri }, connection);
+      setNftCollection({ collection: result.collection, uri: result.uri });
+      setLastChainProof({
+        label: "Colección NFT (Core)",
+        pda: result.collection,
+        signature: result.signature,
+      });
+    } catch (error) {
+      console.error(`${LOG} AchievementLedgerPage: create NFT collection failed`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(`No se pudo crear la colección NFT. ${message}`);
+    } finally {
+      setNftCollectionMutating(false);
+    }
+  };
+
+  const handleUseExistingNftCollection = (collection: string, uri: string) => {
+    if (!anchorWallet?.publicKey) {
+      window.alert("Conecta una billetera primero.");
+      return;
+    }
+    try {
+      const normalized = uriMetadata(uri);
+      const config = { collection: collection.trim(), uri: normalized };
+      writeNftCollectionConfig(anchorWallet.publicKey.toBase58(), config);
+      setNftCollection(config);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      window.alert(message);
+    }
+  };
+
+  const handleClearNftCollection = () => {
+    if (!anchorWallet?.publicKey) return;
+    writeNftCollectionConfig(anchorWallet.publicKey.toBase58(), null);
+    setNftCollection(null);
+  };
+
   const handleSendTokens = async (id: string, amountRaw: string) => {
     const target = achievements.find((item) => item.id === id);
     if (!target) return;
@@ -573,6 +645,10 @@ export const AchievementLedgerPage = () => {
     }
 
     const rewardAmount = kind === "token" ? parseRewardAmount(tokenAmount) : null;
+    if (kind === "nft" && !nftCollection) {
+      window.alert("Crea la colección NFT (Metaplex Core) antes de emitir un logro de tipo NFT.");
+      return;
+    }
     if (kind === "token" && !rewardMint) {
       window.alert("Crea el token del aula antes de emitir un logro de tipo token.");
       return;
@@ -608,12 +684,27 @@ export const AchievementLedgerPage = () => {
         achievementPda: chainResult.achievementPda.toBase58(),
         achievementId: chainResult.achievementId.toString(),
         courseId: courseId?.toString() ?? null,
+        assetAddress: chainResult.assetAddress ?? null,
       });
-      setLastChainProof({
-        label: "Achievement",
-        pda: chainResult.achievementPda.toBase58(),
-        signature: chainResult.signature,
-      });
+
+      if (chainResult.assetAddress) {
+        rememberNftAsset(
+          anchorWallet.publicKey.toBase58(),
+          chainResult.achievementPda.toBase58(),
+          chainResult.assetAddress,
+        );
+        setLastChainProof({
+          label: "NFT Asset (Core)",
+          pda: chainResult.assetAddress,
+          signature: chainResult.signature,
+        });
+      } else {
+        setLastChainProof({
+          label: "Achievement",
+          pda: chainResult.achievementPda.toBase58(),
+          signature: chainResult.signature,
+        });
+      }
 
       if (kind === "token" && rewardAmount !== null && rewardMint?.mintId !== null && rewardMint) {
         try {
@@ -804,13 +895,22 @@ export const AchievementLedgerPage = () => {
           />
         </div>
 
-        <RewardMintPanel
-          rewardMint={rewardMint}
-          syncStatus={rewardMintSync}
-          isMutating={rewardMintMutating}
-          onCreateMint={handleCreateRewardMint}
-          onReplaceMint={handleReplaceRewardMint}
-        />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <RewardMintPanel
+            rewardMint={rewardMint}
+            syncStatus={rewardMintSync}
+            isMutating={rewardMintMutating}
+            onCreateMint={handleCreateRewardMint}
+            onReplaceMint={handleReplaceRewardMint}
+          />
+          <NftCollectionPanel
+            config={nftCollection}
+            isMutating={nftCollectionMutating}
+            onCreateCollection={handleCreateNftCollection}
+            onUseExisting={handleUseExistingNftCollection}
+            onClear={handleClearNftCollection}
+          />
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <CreateAchievementCard
@@ -839,6 +939,7 @@ export const AchievementLedgerPage = () => {
             onTokenAmountChange={setTokenAmount}
             hasRewardMint={rewardMint !== null}
             rewardSymbol={rewardMint?.symbol ?? null}
+            hasNftCollection={nftCollection !== null}
           />
 
           <AchievementCatalogPanel
