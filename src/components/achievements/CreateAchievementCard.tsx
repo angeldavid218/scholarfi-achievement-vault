@@ -29,6 +29,8 @@ interface CreateAchievementCardProps {
   onTokenAmountChange: (value: string) => void;
   hasRewardMint: boolean;
   rewardSymbol?: string | null;
+  /** True when tree + BubblegumV2 collection are configured. */
+  hasCnftConfig?: boolean;
 }
 
 export const CreateAchievementCard = ({
@@ -51,6 +53,7 @@ export const CreateAchievementCard = ({
   onTokenAmountChange,
   hasRewardMint,
   rewardSymbol = null,
+  hasCnftConfig = false,
 }: CreateAchievementCardProps) => {
   const activeCourses = courses.filter((course) => course.active);
   const ticker = (rewardSymbol?.trim() || "tokens").toUpperCase();
@@ -135,7 +138,13 @@ export const CreateAchievementCard = ({
                   : "Crea el token del aula antes de emitir un logro de tipo token."}
               </p>
             </FormField>
-          ) : null}
+          ) : (
+            <p className="text-xs text-neutral">
+              {hasCnftConfig
+                ? "Se registra el logro y se emite un cNFT (Bubblegum V2) en la misma transacción."
+                : "Configura el árbol y la colección cNFT antes de emitir un logro de tipo NFT."}
+            </p>
+          )}
 
           <StudentAssignInput
             id="achievement-student"

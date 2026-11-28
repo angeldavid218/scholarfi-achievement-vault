@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { AchievementCatalogPanel } from "../components/achievements/AchievementCatalogPanel";
 import { CreateAchievementCard } from "../components/achievements/CreateAchievementCard";
+import { CnftCollectionPanel } from "../components/vault/CnftCollectionPanel";
 import { CoursesPanel } from "../components/vault/CoursesPanel";
 import { RewardMintPanel } from "../components/vault/RewardMintPanel";
 import { RosterPanel } from "../components/vault/RosterPanel";
@@ -17,8 +18,22 @@ import type {
   StudentSummary,
   TeacherRewardMint,
 } from "../types/achievement";
+import { SCHOLARFI_LITE_CLUSTER_URL } from "../connection";
 import { addStudentOnChain } from "../solana/addStudentOnChain";
+import { crearUmi, validarArbol, type CnftTreeInfo } from "../solana/cnftBubblegum";
+import {
+  readCnftAssetMap,
+  readCnftConfig,
+  rememberCnftAsset,
+  uriMetadata,
+  writeCnftConfig,
+  type CnftConfig,
+} from "../solana/cnftConfig";
 import { createCourseOnChain } from "../solana/createCourseOnChain";
+import {
+  createCnftCollectionOnChain,
+  createPublicTreeOnChain,
+} from "../solana/createCnftCollectionOnChain";
 import { closeRewardMintOnChain } from "../solana/closeRewardMintOnChain";
 import { createRewardMintOnChain } from "../solana/createRewardMintOnChain";
 import { createStudentListIfNeeded } from "../solana/createStudentListIfNeeded";
@@ -125,6 +140,9 @@ export const AchievementLedgerPage = () => {
     "idle",
   );
   const [rewardMintMutating, setRewardMintMutating] = useState(false);
+  const [cnftConfig, setCnftConfig] = useState<CnftConfig | null>(null);
+  const [cnftTreeInfo, setCnftTreeInfo] = useState<CnftTreeInfo | null>(null);
+  const [cnftMutating, setCnftMutating] = useState(false);
   const [tokenAmount, setTokenAmount] = useState("");
   const [sendingRewardId, setSendingRewardId] = useState<string | null>(null);
 
@@ -175,11 +193,23 @@ export const AchievementLedgerPage = () => {
       (courseRows ?? courses).map((course) => [course.id, course.title] as const),
     );
     const chainAchievements = await fetchTeacherAchievements(wallet, connection, titleById);
-    setAchievements(chainAchievements);
-    setIssuedCount(chainAchievements.length);
+    const assetMap = readCnftAssetMap(wallet.publicKey.toBase58());
+    const enriched = chainAchievements.map((item) => {
+      const asset = item.sampleAchievementPda
+        ? assetMap[item.sampleAchievementPda]
+        : undefined;
+      if (!asset) return item;
+      return {
+        ...item,
+        nftAssetAddress: asset,
+        nftAssetExplorerUrl: explorerAddressUrl(asset),
+      };
+    });
+    setAchievements(enriched);
+    setIssuedCount(enriched.length);
     setAchievementsSync("ready");
     setRecent(
-      chainAchievements.slice(0, 5).map((item) => ({
+      enriched.slice(0, 5).map((item) => ({
         id: item.id,
         title: item.courseTitle
           ? `${item.name} · ${item.courseTitle}`
@@ -187,7 +217,7 @@ export const AchievementLedgerPage = () => {
         relativeTime: "en cadena",
       })),
     );
-    return chainAchievements;
+    return enriched;
   };
 
   const syncRewardMintFromChain = async (
@@ -209,6 +239,8 @@ export const AchievementLedgerPage = () => {
         setCourses([]);
         setStudentList([]);
         setRewardMint(null);
+        setCnftConfig(null);
+        setCnftTreeInfo(null);
         setIssuedCount(0);
         setRecent([]);
         setAchievementsSync("idle");
@@ -216,6 +248,24 @@ export const AchievementLedgerPage = () => {
         setStudentListSync("idle");
         setRewardMintSync("idle");
         return;
+      }
+
+      const savedCnft = readCnftConfig(anchorWallet.publicKey.toBase58());
+      setCnftConfig(savedCnft);
+      if (savedCnft) {
+        void (async () => {
+          try {
+            const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+            setCnftTreeInfo(
+              await validarArbol(umi, savedCnft.tree, anchorWallet.publicKey.toBase58()),
+            );
+          } catch (error) {
+            console.warn(`${LOG} AchievementLedgerPage: tree refresh failed`, error);
+            setCnftTreeInfo(null);
+          }
+        })();
+      } else {
+        setCnftTreeInfo(null);
       }
 
       setAchievementsSync("pending");
@@ -573,6 +623,12 @@ export const AchievementLedgerPage = () => {
     }
 
     const rewardAmount = kind === "token" ? parseRewardAmount(tokenAmount) : null;
+    if (kind === "nft" && !cnftConfig) {
+      window.alert(
+        "Configura el árbol y la colección cNFT (Bubblegum V2) antes de emitir un logro NFT.",
+      );
+      return;
+    }
     if (kind === "token" && !rewardMint) {
       window.alert("Crea el token del aula antes de emitir un logro de tipo token.");
       return;
@@ -608,12 +664,21 @@ export const AchievementLedgerPage = () => {
         achievementPda: chainResult.achievementPda.toBase58(),
         achievementId: chainResult.achievementId.toString(),
         courseId: courseId?.toString() ?? null,
+        assetAddress: chainResult.assetAddress ?? null,
       });
       setLastChainProof({
-        label: "Achievement",
+        label: kind === "nft" ? "Achievement + cNFT" : "Achievement",
         pda: chainResult.achievementPda.toBase58(),
         signature: chainResult.signature,
       });
+
+      if (kind === "nft" && chainResult.assetAddress) {
+        rememberCnftAsset(
+          anchorWallet.publicKey.toBase58(),
+          chainResult.achievementPda.toBase58(),
+          chainResult.assetAddress,
+        );
+      }
 
       if (kind === "token" && rewardAmount !== null && rewardMint?.mintId !== null && rewardMint) {
         try {
@@ -804,13 +869,155 @@ export const AchievementLedgerPage = () => {
           />
         </div>
 
-        <RewardMintPanel
-          rewardMint={rewardMint}
-          syncStatus={rewardMintSync}
-          isMutating={rewardMintMutating}
-          onCreateMint={handleCreateRewardMint}
-          onReplaceMint={handleReplaceRewardMint}
-        />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <RewardMintPanel
+            rewardMint={rewardMint}
+            syncStatus={rewardMintSync}
+            isMutating={rewardMintMutating}
+            onCreateMint={handleCreateRewardMint}
+            onReplaceMint={handleReplaceRewardMint}
+          />
+          <CnftCollectionPanel
+            config={cnftConfig}
+            treeInfo={cnftTreeInfo}
+            isMutating={cnftMutating}
+            onValidateTree={async (tree) => {
+              if (!anchorWallet?.publicKey) {
+                window.alert("Conecta una billetera primero.");
+                return;
+              }
+              setCnftMutating(true);
+              try {
+                const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+                const info = await validarArbol(
+                  umi,
+                  tree,
+                  anchorWallet.publicKey.toBase58(),
+                );
+                setCnftTreeInfo(info);
+              } catch (error) {
+                console.error(`${LOG} AchievementLedgerPage: validate tree failed`, error);
+                setCnftTreeInfo(null);
+                window.alert(
+                  error instanceof Error
+                    ? error.message
+                    : "No se pudo validar el árbol. Revisa la dirección y el RPC.",
+                );
+              } finally {
+                setCnftMutating(false);
+              }
+            }}
+            onCreateCollection={async (collectionName, uri, tree) => {
+              if (!anchorWallet?.publicKey) {
+                window.alert("Conecta una billetera primero.");
+                return;
+              }
+              setCnftMutating(true);
+              try {
+                const result = await createCnftCollectionOnChain(
+                  anchorWallet,
+                  { name: collectionName, uri, tree },
+                  connection,
+                );
+                setCnftConfig({
+                  tree: result.tree,
+                  collection: result.collection,
+                  uri: result.uri,
+                });
+                setLastChainProof({
+                  label: "Colección cNFT",
+                  pda: result.collection,
+                  signature: result.signature,
+                });
+                const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+                setCnftTreeInfo(
+                  await validarArbol(umi, result.tree, anchorWallet.publicKey.toBase58()),
+                );
+              } catch (error) {
+                console.error(`${LOG} AchievementLedgerPage: create cnft collection failed`, error);
+                window.alert(
+                  error instanceof Error
+                    ? error.message
+                    : "No se pudo crear la colección BubblegumV2.",
+                );
+              } finally {
+                setCnftMutating(false);
+              }
+            }}
+            onUseExisting={(collection, uri, tree) => {
+              if (!anchorWallet?.publicKey) {
+                window.alert("Conecta una billetera primero.");
+                return;
+              }
+              try {
+                const normalized = uriMetadata(uri);
+                const next: CnftConfig = {
+                  tree: tree.trim(),
+                  collection: collection.trim(),
+                  uri: normalized,
+                };
+                writeCnftConfig(anchorWallet.publicKey.toBase58(), next);
+                setCnftConfig(next);
+                void (async () => {
+                  try {
+                    const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+                    setCnftTreeInfo(
+                      await validarArbol(umi, next.tree, anchorWallet.publicKey.toBase58()),
+                    );
+                  } catch (error) {
+                    console.warn(`${LOG} AchievementLedgerPage: tree refresh failed`, error);
+                  }
+                })();
+              } catch (error) {
+                window.alert(
+                  error instanceof Error ? error.message : "URI de metadata inválida.",
+                );
+              }
+            }}
+            onCreatePublicTree={async () => {
+              if (!anchorWallet?.publicKey) {
+                window.alert("Conecta una billetera primero.");
+                return;
+              }
+              setCnftMutating(true);
+              try {
+                const result = await createPublicTreeOnChain(anchorWallet, connection);
+                setLastChainProof({
+                  label: "Árbol público Bubblegum",
+                  pda: result.tree,
+                  signature: result.signature,
+                });
+                const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+                setCnftTreeInfo(
+                  await validarArbol(umi, result.tree, anchorWallet.publicKey.toBase58()),
+                );
+                window.alert(
+                  `Árbol público creado: ${result.tree}.${
+                    result.costoSol === null
+                      ? ""
+                      : ` Costo estimado: ${result.costoSol.toFixed(4)} SOL.`
+                  } Comparte su dirección con la sesión.`,
+                );
+                return result.tree;
+              } catch (error) {
+                console.error(`${LOG} AchievementLedgerPage: create public tree failed`, error);
+                window.alert(
+                  error instanceof Error
+                    ? error.message
+                    : "No se pudo crear el árbol público.",
+                );
+              } finally {
+                setCnftMutating(false);
+              }
+            }}
+            onClear={() => {
+              if (!anchorWallet?.publicKey) return;
+              writeCnftConfig(anchorWallet.publicKey.toBase58(), null);
+              setCnftConfig(null);
+              setCnftTreeInfo(null);
+            }}
+          />
+        </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
           <CreateAchievementCard
@@ -839,6 +1046,7 @@ export const AchievementLedgerPage = () => {
             onTokenAmountChange={setTokenAmount}
             hasRewardMint={rewardMint !== null}
             rewardSymbol={rewardMint?.symbol ?? null}
+            hasCnftConfig={cnftConfig !== null}
           />
 
           <AchievementCatalogPanel

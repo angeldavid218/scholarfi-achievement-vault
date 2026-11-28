@@ -18,6 +18,10 @@ export interface AchievementDefinition {
   rewarded?: boolean;
   /** Whole-token amount minted (UI units) for a rewarded token achievement. */
   rewardAmount?: string | null;
+  /** Bubblegum V2 cNFT asset id (client-side map). */
+  nftAssetAddress?: string;
+  /** Explorer URL for the cNFT asset id. */
+  nftAssetExplorerUrl?: string;
 }
 
 export interface TeacherRewardMint {

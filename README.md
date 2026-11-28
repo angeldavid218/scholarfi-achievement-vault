@@ -1,73 +1,87 @@
-# React + TypeScript + Vite
+# ScholarFi Achievement Vault
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for **ScholarFi Lite** on Solana Devnet. Teachers manage a student roster, courses, Token-2022 classroom rewards, and **Bubblegum V2 compressed NFT (cNFT) achievements**.
 
-Currently, two official plugins are available:
+- **Branch:** `cnft` — Bubblegum V2 cNFT minting
+- **Contracts:** [scholarfi-lite-contracts](https://github.com/angeldavid218/scholarfi-lite-contracts) (program `7JTpTv6ftwRJwyXasGjU7L1swFnrizKh7nEeHnSbVMbs`)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Features
 
-## React Compiler
+| Area | Behavior |
+|------|----------|
+| Roster / courses | PDA CRUD against the Anchor program |
+| Token achievements | Mint Token-2022 classroom points into the student ATA |
+| NFT achievements | Same `register_achievement` tx also mints a **Bubblegum V2 cNFT** for the student |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Bubblegum V2 cNFT
 
-## Expanding the ESLint configuration
+NFT achievements are **client-side Bubblegum V2** mints. The Anchor program is unchanged: it still only stores `AchievementType::Nft` on the Achievement PDA.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Setup (once per teacher):
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. Paste/validate a **public Merkle tree** address (session tree, or create one as mentor)
+2. Create a Metaplex Core **collection with the `BubblegumV2` plugin** (do not reuse a plain Core collection from the `nft` branch)
+3. Config `{ tree, collection, uri }` is saved in `localStorage`
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+When the teacher emits a logro with type **NFT**:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. The app builds `register_achievement`
+2. It appends Bubblegum `mintV2` (`leafOwner` = student, authority/payer = teacher)
+3. Both instructions go in **one transaction** — **teacher-only** signer (no asset keypair)
+
+Listing minted cNFTs needs a **DAS-capable RPC** (e.g. Helius Devnet). The public Solana RPC cannot run `getAsset` / `getAssetsByGroup`.
+
+Off-chain metadata lives in [`docs/nft-metadata/`](docs/nft-metadata/):
+
+- [`metadata.json`](docs/nft-metadata/metadata.json)
+- [`nft-img.png`](docs/nft-metadata/nft-img.png)
+
+Public URI (branch `cnft`):
+
+```text
+https://raw.githubusercontent.com/angeldavid218/scholarfi-achievement-vault/cnft/docs/nft-metadata/metadata.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Setup
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+cp .env.example .env
+npm run dev
 ```
+
+Required env:
+
+```env
+VITE_PROGRAM_ID=7JTpTv6ftwRJwyXasGjU7L1swFnrizKh7nEeHnSbVMbs
+VITE_SOLANA_RPC_URL=https://devnet.helius-rpc.com/?api-key=YOUR_KEY
+```
+
+Connect a wallet with Devnet SOL (teacher).
+
+## Happy path (cNFT)
+
+1. Start the app (`npm run dev`) and connect the **teacher** wallet on Devnet.
+2. **Lista de estudiantes** — create the list if needed and add at least one student wallet.
+3. **Colección comprimida**:
+   - Paste the session public Merkle tree → **Validar árbol**
+   - Name: e.g. `Logros del aula`
+   - Metadata URI: the `metadata.json` raw URL above
+   - **Crear colección BubblegumV2** and approve in the wallet
+4. **Crear logro**:
+   - Tipo: **NFT**
+   - Nombre: e.g. `Excelencia cNFT`
+   - Optional course
+   - Assign the student → **Crear y emitir**
+5. Confirm in the catalog:
+   - Achievement **PDA** Explorer link
+   - **cNFT** asset id (when parsed from the mint tx / localStorage map)
+6. Optionally confirm with DAS `getAsset` against your Helius Devnet endpoint.
+
+Token path (unchanged): create the classroom Token-2022 mint, emit a **Token** achievement with an amount.
+
+## Stack
+
+- React 19 + Vite + TypeScript + Tailwind / daisyUI
+- `@coral-xyz/anchor` + `@solana/web3.js` + wallet-adapter
+- `@metaplex-foundation/mpl-bubblegum` + `mpl-core` + DAS API + Umi (instruction builders only; wallet sends the tx)

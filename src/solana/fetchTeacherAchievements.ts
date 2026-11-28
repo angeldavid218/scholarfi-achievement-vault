@@ -118,7 +118,7 @@ export async function fetchTeacherAchievements(
       const rewarded = kind === "token" && receipt !== null;
       const rewardAmount =
         rewarded && receipt && receipt.data.length >= 112
-          ? formatRewardAmount(receipt.data.readBigUInt64LE(104))
+          ? formatRewardAmount(BigInt(receipt.data.readBigUInt64LE(104).toString()))
           : null;
 
       return {

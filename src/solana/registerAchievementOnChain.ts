@@ -1,11 +1,19 @@
 import { AnchorProvider, BN, Program, type Idl } from "@coral-xyz/anchor";
 import type { AnchorWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, type Connection } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  type Connection,
+} from "@solana/web3.js";
 
 import {
   createScholarFiLiteConnection,
+  SCHOLARFI_LITE_CLUSTER_URL,
   scholarFiLiteIdl,
 } from "../connection";
+import { crearUmi, idDesdeTransaccion, ixsCertificado } from "./cnftBubblegum";
+import { readCnftConfig } from "./cnftConfig";
 import { findAchievementPda, findCoursePda, findStudentListPda } from "./pdas";
 
 const LOG = "[ScholarFi Achievement Vault]";
@@ -18,6 +26,8 @@ export type RegisterAchievementOnChainResult = {
   studentListPda: PublicKey;
   coursePda?: PublicKey;
   signature?: string;
+  /** Bubblegum V2 cNFT asset id when kind is nft. */
+  assetAddress?: string;
 };
 
 function nextAchievementIdStorageKey(teacher: PublicKey, student: PublicKey): string {
@@ -51,6 +61,8 @@ function mapAchievementType(kind: RegisterAchievementUiKind) {
  * Creates an `Achievement` PDA for `(teacher, student, achievement_id)` via `register_achievement`.
  * `achievement_id` is chosen from localStorage per `(teacher, student)` and only advanced after success.
  * Pass `courseId` to link an optional Course PDA; omit / null for an unlinked achievement.
+ *
+ * For NFT kind: appends Bubblegum V2 `mintV2` in the same transaction (teacher-only signer).
  */
 export async function registerAchievementOnChain(
   wallet: AnchorWallet,
@@ -97,6 +109,7 @@ export async function registerAchievementOnChain(
     studentListPda: studentListPda.toBase58(),
     courseId: courseId?.toString() ?? null,
     coursePda: coursePda?.toBase58() ?? null,
+    kind: params.kind,
   });
 
   const provider = new AnchorProvider(connection, wallet, {
@@ -105,7 +118,7 @@ export async function registerAchievementOnChain(
 
   const program = new Program(scholarFiLiteIdl as Idl, provider);
 
-  const signature = await program.methods
+  const registerBuilder = program.methods
     .registerAchievement(
       achievementIdBn,
       params.title.trim(),
@@ -120,9 +133,10 @@ export async function registerAchievementOnChain(
       course: coursePda,
       achievement: achievementPda,
       systemProgram: SystemProgram.programId,
-    } as never)
-    .rpc()
-    .catch(async (e: unknown) => {
+    } as never);
+
+  if (params.kind === "token") {
+    const signature = await registerBuilder.rpc().catch(async (e: unknown) => {
       const message = e instanceof Error ? e.message : String(e);
       const isAlreadyProcessed = message.includes("already been processed");
       if (isAlreadyProcessed) {
@@ -138,10 +152,61 @@ export async function registerAchievementOnChain(
       throw e;
     });
 
+    writeNextAchievementId(teacher, params.student, nextAchievementId + 1n);
+
+    console.info(`${LOG} registerAchievementOnChain: confirmed`, {
+      signature: signature || null,
+    });
+
+    return {
+      achievementId: achievementIdBn,
+      achievementPda,
+      studentListPda,
+      coursePda: coursePda ?? undefined,
+      signature: signature || undefined,
+    };
+  }
+
+  // NFT: register_achievement + Bubblegum mintV2 in one transaction (teacher-only signer).
+  const config = readCnftConfig(teacher.toBase58());
+  if (!config) {
+    throw new Error(
+      "Configura primero el árbol y la colección cNFT (Bubblegum V2) antes de emitir un logro de tipo NFT.",
+    );
+  }
+
+  const registerIx = await registerBuilder.instruction();
+  const umi = crearUmi(SCHOLARFI_LITE_CLUSTER_URL);
+  const mintIxs = ixsCertificado(
+    umi,
+    teacher,
+    config.tree,
+    config.collection,
+    params.student,
+    params.title.trim(),
+    config.uri,
+  );
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  const tx = new Transaction({
+    feePayer: teacher,
+    blockhash,
+    lastValidBlockHeight,
+  })
+    .add(registerIx)
+    .add(...mintIxs);
+
+  const signature = await provider.sendAndConfirm(tx, [], {
+    commitment: "confirmed",
+  });
+
   writeNextAchievementId(teacher, params.student, nextAchievementId + 1n);
 
-  console.info(`${LOG} registerAchievementOnChain: confirmed`, {
-    signature: signature || null,
+  const assetAddress = (await idDesdeTransaccion(umi, signature)) ?? undefined;
+
+  console.info(`${LOG} registerAchievementOnChain: confirmed (nft + cnft)`, {
+    signature,
+    assetAddress: assetAddress ?? null,
   });
 
   return {
@@ -149,7 +214,8 @@ export async function registerAchievementOnChain(
     achievementPda,
     studentListPda,
     coursePda: coursePda ?? undefined,
-    signature: signature || undefined,
+    signature,
+    assetAddress,
   };
 }
 
